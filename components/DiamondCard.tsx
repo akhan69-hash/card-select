@@ -126,15 +126,35 @@ export default function DiamondCard({ card }: { card: CardRow }) {
               background: `linear-gradient(160deg, ${color}33, #0B0A14 65%)`,
             }}
           >
-            <div className="absolute inset-0" style={{ transform: 'translateZ(1px)' }}>
+            {/* Real fix (2026-09-09): "the card images used in my meta app
+                are better quality no blur very sharp" -- the source art is
+                only ever 300px (confirmed real ceiling, no higher-res
+                version exists anywhere, official or fan-run), so filling
+                this whole 440px-wide face with it was a ~47% upscale --
+                genuine blur, not a rendering bug. Royale IQ never blurs
+                because it never displays a card bigger than its native
+                resolution. This inset "mat" keeps the art itself close to
+                its real 300px size (the frame around it stays big for
+                presence) instead of stretching the bitmap past what it
+                actually has -- plus a real quality={100} export (Next's
+                default 75 was stacking extra compression softness on top
+                of the upscale) and a light contrast-based sharpen, the
+                same "boost local contrast" trick real photo sharpening
+                previews use. */}
+            <div
+              className="absolute inset-[9%] top-[9%] bottom-[26%] rounded-lg overflow-hidden"
+              style={{ transform: 'translateZ(1px)', boxShadow: `inset 0 0 0 1px ${color}40` }}
+            >
               {art ? (
                 <Image
                   key={art}
                   src={art}
                   alt={card.name}
                   fill
-                  sizes="440px"
+                  sizes="360px"
+                  quality={100}
                   className={usingRealFrame ? 'object-contain' : 'object-cover'}
+                  style={{ filter: 'contrast(1.08) saturate(1.05)' }}
                   priority
                   onError={() => setImgError(true)}
                 />
@@ -210,21 +230,41 @@ export default function DiamondCard({ card }: { card: CardRow }) {
             </div>
           </div>
 
-          {/* BACK FACE */}
+          {/* BACK FACE -- a real card-back design (2026-09-09: "add front
+              and back not just 'card select'" -- was just a plain ring +
+              wordmark). A real trading-card back has a repeating
+              ornamental pattern filling the whole face plus a bordered
+              medallion, not empty space with a logo floating in it. The
+              diamond lattice is two overlapping repeating-linear-gradients
+              (classic argyle-pattern technique) tinted in the card's own
+              rarity color, so every card's back is subtly its own color
+              even though the layout is shared. */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden flex items-center justify-center"
             style={{
               ...faceStyle,
               transform: 'rotateY(180deg)',
               border: `2.5px solid ${color}`,
-              background: `radial-gradient(circle at 50% 40%, ${color}25, #0B0A14 75%)`,
+              background: `radial-gradient(circle at 50% 40%, ${color}22, #0B0A14 75%)`,
               boxShadow: `0 0 60px 4px ${color}55, 0 20px 45px -10px rgba(0,0,0,0.7)`,
             }}
           >
-            <div className="w-24 h-24 rounded-full border-2 flex items-center justify-center" style={{ borderColor: `${color}90` }}>
-              <div className="w-16 h-16 rotate-45 border-2" style={{ borderColor: `${color}90` }} />
+            <div
+              className="absolute inset-0 opacity-[0.16]"
+              style={{
+                backgroundImage: `repeating-linear-gradient(45deg, ${color} 0 2px, transparent 2px 22px), repeating-linear-gradient(-45deg, ${color} 0 2px, transparent 2px 22px)`,
+              }}
+            />
+            <div className="absolute inset-3 rounded-xl border" style={{ borderColor: `${color}50` }} />
+            <div
+              className="relative w-28 h-28 rounded-full border-2 flex items-center justify-center"
+              style={{ borderColor: `${color}b0`, background: `${color}15` }}
+            >
+              <div className="w-16 h-16 rotate-45 border-2" style={{ borderColor: `${color}c0` }} />
             </div>
-            <span className="absolute bottom-6 font-display text-xs tracking-[0.3em] text-white/40">CARD SELECT</span>
+            <span className="absolute bottom-7 font-display text-xs tracking-[0.3em]" style={{ color: `${color}90` }}>
+              CARD SELECT
+            </span>
           </div>
         </motion.div>
       </div>
