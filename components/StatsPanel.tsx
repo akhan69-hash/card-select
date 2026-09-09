@@ -16,7 +16,7 @@ export default function StatsPanel({ card }: { card: CardRow }) {
 
   return (
     <div className="w-full max-w-[280px] mx-auto mt-5">
-      <h2 className="font-display text-2xl text-center tracking-wide">{card.name}</h2>
+      <h2 className="font-display text-xl sm:text-2xl text-center leading-snug break-words px-2">{card.name}</h2>
       <div className="flex items-center justify-center gap-1.5 mt-2 flex-wrap">
         <Badge style={{ backgroundColor: `${color}30`, color, borderColor: `${color}60` }} variant="outline">
           {card.rarity}

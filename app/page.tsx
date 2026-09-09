@@ -10,7 +10,7 @@ export default async function Home() {
   return (
     <main className="flex-1 flex flex-col px-4 py-10 max-w-6xl mx-auto w-full">
       <div className="text-center mb-10">
-        <h1 className="font-display text-4xl sm:text-5xl tracking-wide bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
+        <h1 className="font-display text-3xl sm:text-5xl tracking-normal sm:tracking-wide break-words px-2 bg-clip-text text-transparent bg-gradient-to-b from-white to-white/60">
           CARD SELECT
         </h1>
         <p className="text-white/50 text-sm mt-2 max-w-md mx-auto">

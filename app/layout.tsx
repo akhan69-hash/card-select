@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Russo_One, Inter } from "next/font/google";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import AmbientBackdrop from "@/components/AmbientBackdrop";
 import "./globals.css";
 
 const russoOne = Russo_One({
@@ -27,6 +28,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${russoOne.variable} ${inter.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col bg-[#0B0A14] text-white">
+        <AmbientBackdrop />
         <TooltipProvider>{children}</TooltipProvider>
       </body>
     </html>
