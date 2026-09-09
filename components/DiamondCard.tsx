@@ -146,34 +146,30 @@ export default function DiamondCard({ card }: { card: CardRow }) {
             </div>
 
             {/* Real holo foil: rainbow conic-gradient anchored to the
-                cursor position, color-dodge blended -- shifts hue as you
-                move over it, the actual physical cue a foil card gives. */}
+                cursor position -- shifts hue as you move over it, the
+                actual physical cue a foil card gives. `soft-light` instead
+                of the much harsher `color-dodge` (2026-09-09 fix: real
+                feedback -- "most of everything is not rendering properly"
+                and "evo/hero button does not change the card art". Root
+                cause: color-dodge blows a bright rainbow layer out to
+                near-white over any bright art, badly enough that the art
+                underneath -- including which variant is showing -- became
+                nearly invisible. soft-light tints without ever blowing out.) */}
             <div
               className="absolute inset-0 pointer-events-none transition-opacity duration-300"
               style={{
-                opacity: glare.active ? 0.55 : 0.28,
-                mixBlendMode: 'color-dodge',
+                opacity: glare.active ? 0.35 : 0.15,
+                mixBlendMode: 'soft-light',
                 background: `conic-gradient(from ${glare.x * 3.6}deg at ${glare.x}% ${glare.y}%, #ff2ecb, #ffdd2e, #2eff8f, #2ec8ff, #a12eff, #ff2ecb)`,
               }}
             />
-            {/* Sharp mouse-tracked glare -- the bright specular highlight. */}
+            {/* Sharp mouse-tracked glare -- the bright specular highlight,
+                capped well below full-white so the art stays visible. */}
             <div
               className="absolute inset-0 pointer-events-none transition-opacity duration-200"
               style={{
                 opacity: glare.active ? 1 : 0,
-                background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.55), transparent 40%)`,
-              }}
-            />
-            {/* Fine glitter texture -- small repeating specular dots, like
-                real foil grain, brighter near the glare point. */}
-            <div
-              className="absolute inset-0 pointer-events-none mix-blend-overlay"
-              style={{
-                opacity: glare.active ? 0.35 : 0.12,
-                backgroundImage:
-                  'radial-gradient(rgba(255,255,255,0.9) 1px, transparent 1.5px), radial-gradient(rgba(255,255,255,0.6) 1px, transparent 1.5px)',
-                backgroundSize: '6px 6px, 9px 9px',
-                backgroundPosition: `0 0, ${glare.x / 10}px ${glare.y / 10}px`,
+                background: `radial-gradient(circle at ${glare.x}% ${glare.y}%, rgba(255,255,255,0.28), transparent 40%)`,
               }}
             />
 
