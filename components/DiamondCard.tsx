@@ -2,141 +2,180 @@
 
 import { useRef, useState } from 'react'
 import Image from 'next/image'
-import { motion } from 'framer-motion'
+import { motion, useMotionValue, animate } from 'framer-motion'
 import { RARITY_COLORS, type CardRow } from '@/lib/types'
 
 /**
- * The "diamond quality" card reveal. Real 3D depth (not just a flat tilt) --
- * `transformStyle: preserve-3d` on the tilting card means child layers with
- * their own `translateZ` genuinely parallax against each other as the card
- * rotates: the art sits at one depth, the holo sheen and mouse-reactive
- * glare float above it, the rarity crest floats highest. A dynamic shadow
- * shifts opposite the tilt to simulate one fixed light source reacting to
- * the card's angle (a real physical card would do exactly this), a soft
- * ambient glow drifts behind it, and a fading mirror-image reflection sits
- * underneath -- like a card in a lit display case, not a flat image with a
- * border. All CSS transforms -- no 3D engine, still effectively free.
+ * A real, freely-spinnable 3D card -- click and drag anywhere on it to spin
+ * it a full 360° on either axis (not a hover-tilt clamp), release and it
+ * keeps spinning with its own momentum before settling (Framer Motion's
+ * `type: 'inertia'` animation, driven by real drag velocity). Two actual
+ * faces (front = art + stats baked into the frame like a real trading
+ * card, back = a card-back emblem), built with the classic CSS
+ * `backface-visibility: hidden` two-plane trick under one
+ * `transform-style: preserve-3d` parent -- spin it past 90° and the back
+ * face is genuinely what's showing, not a fake illusion.
+ *
+ * Kept smooth on purpose: only `transform` (rotateX/rotateY, GPU-composited,
+ * never triggers layout/paint) changes per pointer-move frame -- no other
+ * style recalculation happens during a drag.
  */
 export default function DiamondCard({ card }: { card: CardRow }) {
-  const ref = useRef<HTMLDivElement>(null)
-  const [tilt, setTilt] = useState({ rx: 0, ry: 0, px: 0.5, py: 0.5 })
-  const [active, setActive] = useState(false)
+  const rotateX = useMotionValue(8)
+  const rotateY = useMotionValue(-12)
   const [imgError, setImgError] = useState(false)
   const color = RARITY_COLORS[card.rarity] ?? RARITY_COLORS.Common
-
-  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = ref.current?.getBoundingClientRect()
-    if (!rect) return
-    const px = (e.clientX - rect.left) / rect.width
-    const py = (e.clientY - rect.top) / rect.height
-    setTilt({ rx: (py - 0.5) * -22, ry: (px - 0.5) * 22, px, py })
-  }
-  const onLeave = () => {
-    setTilt({ rx: 0, ry: 0, px: 0.5, py: 0.5 })
-    setActive(false)
-  }
-
-  // Shadow shifts opposite the tilt -- as if one light source is fixed
-  // above the card and the card itself is rotating under it.
-  const shadowX = tilt.ry * -1.4
-  const shadowY = 24 - tilt.rx * 1.2
-
   const art = imgError || !card.image_url ? null : card.image_url
 
+  const dragging = useRef(false)
+  const last = useRef({ x: 0, y: 0, t: 0 })
+  const velocity = useRef({ x: 0, y: 0 })
+
+  const onPointerDown = (e: React.PointerEvent) => {
+    dragging.current = true
+    ;(e.target as HTMLElement).setPointerCapture(e.pointerId)
+    last.current = { x: e.clientX, y: e.clientY, t: performance.now() }
+    velocity.current = { x: 0, y: 0 }
+    rotateX.stop()
+    rotateY.stop()
+  }
+
+  const onPointerMove = (e: React.PointerEvent) => {
+    if (!dragging.current) return
+    const now = performance.now()
+    const dt = Math.max(now - last.current.t, 1)
+    const dx = e.clientX - last.current.x
+    const dy = e.clientY - last.current.y
+    rotateY.set(rotateY.get() + dx * 0.5)
+    rotateX.set(rotateX.get() - dy * 0.5)
+    velocity.current = { x: (dx / dt) * 500, y: (dy / dt) * 500 }
+    last.current = { x: e.clientX, y: e.clientY, t: now }
+  }
+
+  const onPointerUp = () => {
+    if (!dragging.current) return
+    dragging.current = false
+    // Keep spinning with real momentum, decaying to a stop -- a card you
+    // actually threw, not one that just stops dead when you let go.
+    animate(rotateY, rotateY.get() + velocity.current.x * 4, {
+      type: 'inertia',
+      power: 0.35,
+      timeConstant: 300,
+      restDelta: 0.5,
+    })
+    animate(rotateX, rotateX.get() - velocity.current.y * 4, {
+      type: 'inertia',
+      power: 0.35,
+      timeConstant: 300,
+      restDelta: 0.5,
+    })
+  }
+
+  const faceStyle: React.CSSProperties = {
+    backfaceVisibility: 'hidden',
+    WebkitBackfaceVisibility: 'hidden',
+  }
+
   return (
-    <div className="relative mx-auto w-full max-w-[340px]">
-      {/* Ambient glow -- a large, soft, drifting blob in the card's own
-          rarity color, sitting behind everything. */}
+    <div className="relative mx-auto w-full max-w-[360px] select-none">
       <div
         className="absolute inset-0 -z-10 rounded-full blur-3xl opacity-50 drift-glow"
         style={{ background: color }}
       />
 
-      <div style={{ perspective: 1200 }}>
+      <div style={{ perspective: 1400 }}>
         <motion.div
-          ref={ref}
-          onMouseMove={onMove}
-          onMouseEnter={() => setActive(true)}
-          onMouseLeave={onLeave}
-          initial={{ opacity: 0, scale: 0.4, rotateY: -35 }}
-          animate={{ opacity: 1, scale: active ? 1.06 : 1, rotateY: 0 }}
+          initial={{ opacity: 0, scale: 0.4 }}
+          animate={{ opacity: 1, scale: 1 }}
           transition={{ type: 'spring', damping: 15, stiffness: 130 }}
-          className="relative aspect-[3/4] rounded-2xl cursor-pointer"
-          style={{
-            transform: `rotateX(${tilt.rx}deg) rotateY(${tilt.ry}deg)`,
-            transformStyle: 'preserve-3d',
-            boxShadow: `${shadowX}px ${shadowY}px 45px -8px rgba(0,0,0,0.7), 0 0 60px 4px ${color}55`,
-          }}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
+          className="relative aspect-[3/4] cursor-grab active:cursor-grabbing touch-none"
+          style={{ transformStyle: 'preserve-3d', rotateX, rotateY }}
         >
-          {/* Base plate -- sits at the "floor" depth, gives the card frame
-              itself real thickness rather than looking paper-flat. */}
+          {/* FRONT FACE -- real trading-card layout: art, name banner,
+              rarity/elixir crest, and a stat strip baked right into the
+              frame, like real card text/stats printed on the card. */}
           <div
             className="absolute inset-0 rounded-2xl overflow-hidden"
             style={{
-              transform: 'translateZ(0px)',
-              border: `2px solid ${color}`,
+              ...faceStyle,
+              border: `2.5px solid ${color}`,
+              boxShadow: `0 0 60px 4px ${color}55, 0 20px 45px -10px rgba(0,0,0,0.7)`,
               background: `linear-gradient(160deg, ${color}33, #0B0A14 65%)`,
             }}
           >
-            {art ? (
-              <Image
-                src={art}
-                alt={card.name}
-                fill
-                sizes="340px"
-                className="object-cover"
-                priority
-                onError={() => setImgError(true)}
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-white/70 text-sm px-4 text-center">
-                {card.name}
+            <div className="absolute inset-0" style={{ transform: 'translateZ(1px)' }}>
+              {art ? (
+                <Image src={art} alt={card.name} fill sizes="360px" className="object-cover" priority />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-white/70 text-sm px-4 text-center">
+                  {card.name}
+                </div>
+              )}
+            </div>
+
+            <div className="absolute inset-0 holo-sheen mix-blend-overlay pointer-events-none" />
+
+            {/* Rarity crest, top corner */}
+            <div
+              className="absolute top-2.5 right-2.5 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"
+              style={{ background: `${color}e6`, color: '#0B0A14' }}
+            >
+              {card.rarity}
+            </div>
+            {/* Elixir droplet, top corner */}
+            {card.elixir_cost != null && (
+              <div
+                className="absolute top-2 left-2 w-7 h-7 rounded-[50%_50%_50%_0] rotate-45 shadow flex items-center justify-center"
+                style={{ background: 'radial-gradient(circle at 35% 30%, #C77DFF, #7B2FBE 60%, #5A1F94)' }}
+              >
+                <span className="-rotate-45 text-white text-xs font-bold">{card.elixir_cost}</span>
               </div>
             )}
+
+            {/* Name + real stat strip -- "with its data on it" */}
+            <div className="absolute bottom-0 left-0 right-0 bg-black/75 backdrop-blur-sm px-3 pt-2 pb-2.5">
+              <div className="font-display text-sm text-center break-words leading-snug mb-1.5">{card.name}</div>
+              <div className="flex items-center justify-center gap-3 text-[10px]">
+                <span className="text-cyan-300 font-bold">
+                  {card.win_rate != null ? `${card.win_rate}%` : '—'}
+                  <span className="text-white/40 font-normal ml-0.5">WR</span>
+                </span>
+                <span className="text-amber-300 font-bold">
+                  {card.usage_rate != null ? `${card.usage_rate}%` : '—'}
+                  <span className="text-white/40 font-normal ml-0.5">USE</span>
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Holo foil sheen -- floats above the art layer (real parallax
-              via translateZ under preserve-3d), sweeping on its own loop. */}
+          {/* BACK FACE -- a real card-back design, not a mirror of the front */}
           <div
-            className="absolute inset-0 rounded-2xl holo-sheen mix-blend-overlay pointer-events-none"
-            style={{ transform: 'translateZ(18px)' }}
-          />
-
-          {/* Mouse-reactive glare -- a bright soft highlight that follows the
-              cursor, the actual "glossy" reflectivity cue a flat sheen alone
-              can't give (a real photo of a foil card catches light exactly
-              like this as you tilt it). */}
-          <div
-            className="absolute inset-0 rounded-2xl pointer-events-none transition-opacity duration-200"
+            className="absolute inset-0 rounded-2xl overflow-hidden flex items-center justify-center"
             style={{
-              transform: 'translateZ(28px)',
-              opacity: active ? 1 : 0,
-              background: `radial-gradient(circle at ${tilt.px * 100}% ${tilt.py * 100}%, rgba(255,255,255,0.45), transparent 45%)`,
+              ...faceStyle,
+              transform: 'rotateY(180deg)',
+              border: `2.5px solid ${color}`,
+              background: `radial-gradient(circle at 50% 40%, ${color}25, #0B0A14 75%)`,
+              boxShadow: `0 0 60px 4px ${color}55, 0 20px 45px -10px rgba(0,0,0,0.7)`,
             }}
-          />
-
-          {/* Rarity crest -- floats highest, closest to the viewer. */}
-          <div
-            className="absolute top-2.5 right-2.5 text-[10px] font-bold uppercase tracking-wide px-2.5 py-1 rounded-full"
-            style={{ background: `${color}e6`, color: '#0B0A14', transform: 'translateZ(40px)' }}
           >
-            {card.rarity}
+            <div
+              className="w-24 h-24 rounded-full border-2 flex items-center justify-center"
+              style={{ borderColor: `${color}90` }}
+            >
+              <div className="w-16 h-16 rotate-45 border-2" style={{ borderColor: `${color}90` }} />
+            </div>
+            <span className="absolute bottom-6 font-display text-xs tracking-[0.3em] text-white/40">
+              CARD SELECT
+            </span>
           </div>
         </motion.div>
       </div>
-
-      {/* Reflection -- a faded, mirrored echo beneath the card, like a
-          trophy sitting in a lit display case. Purely decorative, hidden
-          from screen readers. */}
-      {art && (
-        <div
-          aria-hidden
-          className="relative mt-1 h-16 overflow-hidden rounded-2xl opacity-25 pointer-events-none"
-          style={{ maskImage: 'linear-gradient(to bottom, black, transparent)', WebkitMaskImage: 'linear-gradient(to bottom, black, transparent)' }}
-        >
-          <Image src={art} alt="" fill sizes="340px" className="object-cover scale-y-[-1]" />
-        </div>
-      )}
+      <p className="text-center text-white/25 text-[10px] mt-3">Drag to spin — it keeps going</p>
     </div>
   )
 }
