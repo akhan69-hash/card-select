@@ -11,7 +11,7 @@ export default function StatsPanel({ card }: { card: CardRow }) {
   }
 
   return (
-    <div className="w-full max-w-[360px] mx-auto mt-6">
+    <div className="w-full max-w-[440px] mx-auto mt-6">
       {(card.evolution_ability_description || card.hero_ability_description) && (
         <div className="space-y-2 text-xs text-white/60 leading-relaxed">
           {card.evolution_ability_description && (

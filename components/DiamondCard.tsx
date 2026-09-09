@@ -99,7 +99,7 @@ export default function DiamondCard({ card }: { card: CardRow }) {
   const faceStyle: React.CSSProperties = { backfaceVisibility: 'hidden', WebkitBackfaceVisibility: 'hidden' }
 
   return (
-    <div className="relative mx-auto w-full max-w-[360px] select-none">
+    <div className="relative mx-auto w-full max-w-[440px] select-none">
       <div className="absolute inset-0 -z-10 rounded-full blur-3xl opacity-50 drift-glow" style={{ background: color }} />
 
       <div style={{ perspective: 1400 }}>
@@ -133,7 +133,7 @@ export default function DiamondCard({ card }: { card: CardRow }) {
                   src={art}
                   alt={card.name}
                   fill
-                  sizes="360px"
+                  sizes="440px"
                   className={usingRealFrame ? 'object-contain' : 'object-cover'}
                   priority
                   onError={() => setImgError(true)}
